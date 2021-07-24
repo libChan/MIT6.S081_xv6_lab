@@ -77,8 +77,8 @@ testmem() {
 
 void
 testcall() {
-  struct sysinfo info;
-  
+  struct sysinfo info;  
+
   if (sysinfo(&info) < 0) {
     printf("FAIL: sysinfo failed\n");
     exit(1);
@@ -107,7 +107,7 @@ void testproc() {
   if(pid == 0){
     sinfo(&info);
     if(info.nproc != nproc+1) {
-      printf("sysinfotest: FAIL nproc is %d instead of %d\n", info.nproc, nproc+1);
+      printf("==sysinfotest: FAIL nproc is %d instead of %d\n", info.nproc, nproc+1);
       exit(1);
     }
     exit(0);
