@@ -3,6 +3,7 @@
 ### Done
 
 - Lab: Xv6 and Unix utilities
+- Lab: system calls
 
 
 
