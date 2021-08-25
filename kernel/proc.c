@@ -6,6 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -121,6 +122,14 @@ found:
     return 0;
   }
 
+  // Copy of kernel page table
+  p->kpagetable = proc_kpagetable(p);
+  if(p->kpagetable == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -141,7 +150,10 @@ freeproc(struct proc *p)
   p->trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
+  if(p->kpagetable)
+    proc_freekpagetable(p->kpagetable, p);
   p->pagetable = 0;
+  p->kpagetable = 0;
   p->sz = 0;
   p->pid = 0;
   p->parent = 0;
@@ -185,6 +197,26 @@ proc_pagetable(struct proc *p)
   return pagetable;
 }
 
+pagetable_t
+proc_kpagetable(struct proc *p)
+{
+  pagetable_t kpagetable;
+  printf("===%s\n", p->name);
+  // Copy of kernel page table
+  kpagetable = kpagetableinit();
+  if(kpagetable == 0)
+    return 0;
+
+  // char *pa = kalloc();
+  // if(pa == 0)
+  //   panic("kalloc");
+  // uint64 va = KSTACK((int) (p - proc));
+  // if(mappages(kpagetable, va, PGSIZE, pa, PTE_R | PTE_W) != 0)
+  //   panic("proc_kpagetable kvmmap");
+
+  return kpagetable;
+}
+
 // Free a process's page table, and free the
 // physical memory it refers to.
 void
@@ -193,6 +225,13 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
   uvmfree(pagetable, sz);
+}
+
+void
+proc_freekpagetable(pagetable_t kpagetable, struct proc *p)
+{
+  uint64 va = KSTACK((int) (p - proc));
+  uvmunmap(kpagetable, va, 1, 0);
 }
 
 // a user program that calls exec("/init")
@@ -473,6 +512,8 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+        w_satp(MAKE_SATP(p->kpagetable));
+        sfence_vma();
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
